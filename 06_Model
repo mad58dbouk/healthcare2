@@ -1,0 +1,93 @@
+import pandas as pd
+import streamlit as st
+
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+uploaded_data = st.sidebar.file_uploader('Upload dataset', type='csv')
+if uploaded_data:
+
+    df = pd.read_csv(uploaded_data)
+
+    cleanup_vals = {"gender": {"Male": 0, "Female": 1},
+                    "ever_married": {"No": 0, "Yes": 1},
+                    "work_type": {"Never_worked": 0, "children": 1, "Self-employed": 2, "Private": 3, "Govt_job": 4},
+                    "Residence_type" : {"Urban": 0, "Rural": 1},
+                    "smoking_status": {"Unknown": 0, "never smoked": 1, "formerly smoked": 2, "smokes": 3}}
+
+    # df['avg_glucose_level']=df['avg_glucose_level'].apply(lambda x: x * 100)
+    # predict_df['avg_glucose_level'].iloc[0]=predict_df['avg_glucose_level'].iloc[0]*100
+    # df['bmi']=df['bmi'].apply(lambda x: x * 10)
+    # predict_df['bmi']=predict_df['bmi'].apply(lambda x: x * 10)
+
+    df = df.replace(cleanup_vals)
+    df = df.drop(columns=['Count'], axis=1)
+
+    y=df['stroke']
+    x=df.drop('stroke',axis=1)
+
+    x_train,x_test,y_train,y_test=train_test_split(x,y,test_size=0.25)
+
+    rf = RandomForestRegressor(n_estimators=25, random_state=0)
+    rf.fit(x_train, y_train)  
+
+    st.subheader('2. Model ')
+    ml_col1, ml_col2, ml_col3, ml_col4 = st.columns(4)
+
+    with ml_col1:
+        st.write('Length of Training Dataset')
+        st.info(len(x_train))
+
+    with ml_col2:
+        st.write('Length of Testing Dataset')
+        st.info(len(x_test))
+
+    with ml_col3:
+        y_pred = rf.predict(x_test)
+        st.write('Accuracy Score:')
+        st.info(accuracy_score(y_test, y_pred))
+
+    ### INPUT DATA SECTION ###
+    st.subheader('3. Data Input Prediction ')
+    
+    # Create 3 columns for the inputs to be aligned
+    with st.form(key='input form'):
+        inp_col1, inp_col2, inp_col3 = st.columns(3)
+    with inp_col1:
+        test_age=st.text_input('Age:', max_chars=3, value=0)
+        test_Avg_GlucLvl=st.text_input('Average Glucose Level:', max_chars=6, value=0)
+        test_BMI=st.text_input('BMI:', max_chars=4, value=0)
+
+    with inp_col2:
+        test_Hypertension=st.select_slider('Hypertension: (0 for no hypertension, 1 for hypertension)',options=[0,1])
+        test_Heart_Disease=st.select_slider('Heart Disease: (0 for no Heart Disease, 1 for Heart Disease)',options=[0,1])
+        test_Work_Type=st.select_slider('Work Type:', options=['Never_worked','children', 'Self-employed', 'Private', 'Govt_job'])
+        test_Smoking_Status=st.select_slider('Smoking Status:', options=['Unknown', 'never smoked', 'formerly smoked', 'smokes'])
+
+    with inp_col3:
+        test_sex=st.radio('Sex:',options=['Male','Female'])
+        test_Residence_Type=st.radio('Residence Type:', options=['Urban', 'Rural'])
+        test_Ever_Married=st.radio('Ever Married:', options=['No','Yes'])
+
+    if st.form_submit_button('Confirm'):     
+        predict_data={'age':[test_age],
+                        'gender':[test_sex],
+                        'hypertension':[test_Hypertension],
+                        'heart_disease':[test_Heart_Disease],
+                        'ever_married':[test_Ever_Married],
+                        'work_type':[test_Work_Type],
+                        'Residence_type':[test_Residence_Type],
+                        'avg_glucose_level':[test_Avg_GlucLvl],
+                        'bmi':[test_BMI],
+                        'smoking_status':[test_Smoking_Status]}    
+
+        predict_df= pd.DataFrame(predict_data)
+
+        predict_df = predict_df.replace(cleanup_vals)
+
+        msg = 'There is a % {} chance patient will have/had a stroke'.format(round(rf.predict_proba(predict_df)[0][0] *100, 2))
+        st.error(msg)
